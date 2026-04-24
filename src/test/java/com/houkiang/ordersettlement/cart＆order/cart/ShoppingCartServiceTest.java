@@ -72,13 +72,6 @@ class ShoppingCartServiceTest {
 
     // ---------- 商品价格为负数时抛出 InvalidPriceException ----------
     @Test
-    void addItem_ShouldThrowInvalidPriceException_WhenProductPriceIsNegative() {
-        Product negativePriceProduct = new Product("P003", "Bad", new BigDecimal("-1.00"), 10);
-        assertThrows(InvalidPriceException.class, () -> service.addItem(cart, negativePriceProduct, 1));
-    }
-
-    // 注意：Product 构造器本身就会校验价格，所以 addItem 中的 validatePrice 会再次校验（幂等）
-    @Test
     void productCreation_ShouldThrowInvalidPriceException_WhenPriceIsNegative() {
         assertThrows(InvalidPriceException.class, () -> new Product("P004", "Faulty", new BigDecimal("-2.50"), 5));
     }

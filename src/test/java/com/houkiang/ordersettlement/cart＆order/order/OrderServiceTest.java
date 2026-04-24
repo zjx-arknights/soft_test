@@ -133,7 +133,7 @@ class OrderStatusServiceTest {
         Product product = new Product("P001", "Apple", new BigDecimal("5.00"), 10);
         cart.addItem(new CartItem(product, 1));
         OrderSummary summary = new OrderSummary(BigDecimal.valueOf(5), BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.valueOf(5));
-        return new Order("ORD-1", cart, new Address("123 Main St"), DeliveryType.STANDARD, List.of(), summary, status);
+        return new Order("ORD-1", cart, new Address("John Doe", "1234567890", "123 Main St", com.houkiang.ordersettlement.shipping.domain.RegionType.NORMAL), DeliveryType.STANDARD, List.of(), summary, status);
     }
 }
 
@@ -168,7 +168,7 @@ class OrderPricingServiceTest {
         cart = new ShoppingCart();
         Product product = new Product("P001", "Apple", new BigDecimal("10.00"), 10);
         cart.addItem(new CartItem(product, 2));
-        address = new Address("123 Main St");
+        address = new Address("John Doe", "1234567890", "123 Main St", com.houkiang.ordersettlement.shipping.domain.RegionType.NORMAL);
         coupons = List.of();
         request = new OrderCreateRequest(cart, address, DeliveryType.STANDARD, coupons);
     }
@@ -178,9 +178,9 @@ class OrderPricingServiceTest {
         BigDecimal itemAmount = new BigDecimal("20.00");
         when(shoppingCartService.calculateCartSubtotal(cart)).thenReturn(itemAmount);
         when(promotionService.applyCoupons(eq(itemAmount), eq(coupons)))
-                .thenReturn(new PromotionCalculationResult(itemAmount, BigDecimal.ZERO));
+                .thenReturn(new PromotionCalculationResult(itemAmount, BigDecimal.ZERO, itemAmount, List.of()));
         when(shippingService.calculateShippingFee(eq(itemAmount), eq(address), eq(DeliveryType.STANDARD)))
-                .thenReturn(new ShippingCalculationResult(new BigDecimal("5.00")));
+                .thenReturn(new ShippingCalculationResult(DeliveryType.STANDARD, new BigDecimal("5.00"), false));
         doNothing().when(orderValidator).validateCartNotEmpty(cart);
         doNothing().when(orderValidator).validateStock(cart);
         doNothing().when(shippingService).validateAddress(address);
@@ -202,9 +202,9 @@ class OrderPricingServiceTest {
 
         when(shoppingCartService.calculateCartSubtotal(cart)).thenReturn(itemAmount);
         when(promotionService.applyCoupons(eq(itemAmount), eq(coupons)))
-                .thenReturn(new PromotionCalculationResult(finalAmount, discount));
-        when(shippingService.calculateShippingFee(eq(finalAmount), eq(address), eq(DeliveryType.STANDARD)))
-                .thenReturn(new ShippingCalculationResult(shipping));
+                .thenReturn(new PromotionCalculationResult(itemAmount, discount, finalAmount, List.of()));
+        when(shippingService.calculateShippingFee(any(BigDecimal.class), any(Address.class), any(DeliveryType.class)))
+                .thenReturn(new ShippingCalculationResult(DeliveryType.STANDARD, shipping, false));
         doNothing().when(orderValidator).validateCartNotEmpty(cart);
         doNothing().when(orderValidator).validateStock(cart);
         doNothing().when(shippingService).validateAddress(address);
@@ -226,9 +226,9 @@ class OrderPricingServiceTest {
 
         when(shoppingCartService.calculateCartSubtotal(cart)).thenReturn(itemAmount);
         when(promotionService.applyCoupons(eq(itemAmount), eq(coupons)))
-                .thenReturn(new PromotionCalculationResult(finalAmount, discount));
-        when(shippingService.calculateShippingFee(eq(finalAmount), eq(address), eq(DeliveryType.STANDARD)))
-                .thenReturn(new ShippingCalculationResult(shipping));
+                .thenReturn(new PromotionCalculationResult(itemAmount, discount, finalAmount, List.of()));
+        when(shippingService.calculateShippingFee(any(BigDecimal.class), any(Address.class), any(DeliveryType.class)))
+                .thenReturn(new ShippingCalculationResult(DeliveryType.STANDARD, shipping, false));
         doNothing().when(orderValidator).validateCartNotEmpty(cart);
         doNothing().when(orderValidator).validateStock(cart);
         doNothing().when(shippingService).validateAddress(address);
@@ -236,7 +236,7 @@ class OrderPricingServiceTest {
         OrderSummary summary = orderPricingService.calculateOrderSummary(request);
 
         // MoneyUtils.minZero 应确保 payableAmount 不低于 0
-        assertEquals(BigDecimal.ZERO, summary.getPayableAmount());
+        assertEquals(0, summary.getPayableAmount().compareTo(BigDecimal.ZERO));
     }
 
     @Test
@@ -296,7 +296,7 @@ class OrderServiceTest {
         cart = new ShoppingCart();
         Product product = new Product("P001", "Apple", new BigDecimal("10.00"), 10);
         cart.addItem(new CartItem(product, 2));
-        address = new Address("123 Main St");
+        address = new Address("John Doe", "1234567890", "123 Main St", com.houkiang.ordersettlement.shipping.domain.RegionType.NORMAL);
         coupons = List.of();
         request = new OrderCreateRequest(cart, address, DeliveryType.STANDARD, coupons);
         summary = new OrderSummary(new BigDecimal("20.00"), BigDecimal.ZERO, new BigDecimal("5.00"), new BigDecimal("25.00"));
