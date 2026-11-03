@@ -1,0 +1,13 @@
+{
+  "items": [
+    {"productId": "P001", "quantity": 2}
+  ],
+  "address": {
+    "recipientName": "张三",
+    "phone": "13800138000",
+    "detailAddress": "北京市朝阳区测试路1号",
+    "regionType": "NORMAL"
+  },
+  "deliveryType": "STANDARD",
+  "couponCodes": ["FULL100_20", "DISCOUNT90", "FIXED10"]
+}

@@ -1,0 +1,18 @@
+services:
+  mysql:
+    image: mysql:8.4.13
+    environment:
+      MYSQL_DATABASE: order_settlement
+      MYSQL_USER: order_app
+      MYSQL_PASSWORD: ${DB_PASSWORD:?Set DB_PASSWORD before starting MySQL}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?Set MYSQL_ROOT_PASSWORD before starting MySQL}
+    ports:
+      - "127.0.0.1:3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_0900_as_cs
+
+volumes:
+  mysql_data:

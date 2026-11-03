@@ -1,9 +1,13 @@
 # common 与 shipping 模块单元测试总结
 
+> 本文为第一阶段业务测试快照。第二阶段保留这些用例，当前依赖版本和全量测试结果见[第二阶段验收报告](docs/stage-2-verification.md)。
+
 - 测试框架：JUnit 5
 - 测试文件位置：`src/test/java/com/houkiang/ordersettlement/test_common_shipping/`
 - 执行命令：`mvn -Dtest="MoneyUtilsTest,ShippingServiceTest" test`
 - 运行结果：**Tests run: 49，Failures: 0，Errors: 0**
+- 复核日期：2026-10-21，以上 49 次执行在全量干净构建中全部通过，跳过数为 0。
+- 全量验收命令：`mvn clean test checkstyle:check spotbugs:check`；覆盖率及统计口径见[软件测试报告](软件测试报告.md)。
 
 ---
 

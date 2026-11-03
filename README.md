@@ -1,30 +1,72 @@
 # 在线购物订单结算系统
 
-本项目是“软件质量与测试”课程小组作业的被测试项目，目标是提供一个结构清晰、便于单元测试和静态分析的 Java 后端核心业务系统。
+本项目由“软件质量与测试”课程的 Java 订单结算核心系统演进而来，现已完成第四阶段：使用 Spring Boot 提供 HTTP 接口，通过 MyBatis 接入 MySQL，并实现库存事务与幂等下单。
 
-项目只实现“订单结算核心模块”，不包含前端页面、数据库、真实支付、外部网络接口。
+商品价格、库存和优惠规则来自数据库。结算预览只计算金额；订单创建会在同一事务中扣减库存并保存订单与历史快照，取消订单会回补库存。带 `Idempotency-Key` 的重复请求只创建一次订单。真实支付和用户权限属于后续范围。
 
 ## 版本信息
 
 - 项目版本：`1.0.0-SNAPSHOT`
 - Java 版本：`17`
+- Web 框架：`Spring Boot 3.5.16`、`Spring MVC`、`Jakarta Validation`
+- 持久层：`MyBatis Spring Boot Starter 3.0.5`、`MySQL 8.4`，支持本地 H2 文件数据库
+- 数据库迁移：`Flyway 11.7.2`
 - 构建工具：`Maven 3.9.x`
-- 测试框架：`JUnit 5.10.2`
+- 测试框架：`JUnit 5.12.2`（由 Spring Boot 管理）
+- Mock 框架：`Mockito 5.17.0`（由 Spring Boot 管理）
 - 覆盖率工具：`JaCoCo 0.8.12`
 - 静态分析工具：`Checkstyle 3.3.1`、`SpotBugs 4.8.6.4`
 - Maven 坐标：`com.houkiang:order-settlement:1.0.0-SNAPSHOT`
 
-## 快速检查命令
+## 启动与调用
 
-在项目根目录执行：
+在 `soft_test` 目录执行：
 
 ```powershell
-mvn test
-mvn checkstyle:check
-mvn spotbugs:check
+mvn spring-boot:run
 ```
 
-当前项目已通过上述三项检查。
+默认监听 `8080` 端口，可用环境变量 `PORT` 调整。默认 `local` profile 将数据持久化到 `data/` 下的 H2 文件；首次启动自动迁移表结构并写入演示目录，重启不会重置数据。使用 MySQL 时设置连接环境变量，并启用 `mysql` profile，详见[数据库运行文档](docs/database.md)。
+
+| 方法 | 路径 | 用途 |
+|------|------|------|
+| GET | `/api/products` | 查询服务端商品价格与库存 |
+| GET | `/api/coupons` | 查询服务端优惠规则 |
+| POST | `/api/settlements/preview` | 校验请求、商品与优惠券，返回结算金额 |
+| POST | `/api/orders` | 创建订单并扣减库存；可用 `Idempotency-Key` 安全重试 |
+| GET | `/api/orders/{orderId}` | 查询订单与历史快照 |
+| PATCH | `/api/orders/{orderId}/status` | 校验并保存状态；取消时回补已预占库存 |
+
+另开终端，在同一目录调用示例请求：
+
+```powershell
+Invoke-RestMethod -Method Post -Uri 'http://localhost:8080/api/settlements/preview' -ContentType 'application/json; charset=utf-8' -InFile 'docs/examples/preview.json'
+```
+
+示例购买两件 P001，依次应用满减、折扣和固定金额券，返回商品金额 `100.00`、优惠 `38.00`、运费 `0.00`、应付 `62.00`。
+请求约束、错误码和完整示例见 [HTTP 接口文档](docs/http-api.md)；库存事务与幂等语义见[第四阶段文档](docs/transactional-checkout.md)。
+
+## 构建与质量检查
+
+```powershell
+mvn clean verify checkstyle:check spotbugs:check
+java -jar target/order-settlement-1.0.0-SNAPSHOT.jar
+```
+
+首次执行需要联网下载 Maven 插件和测试依赖；依赖缓存完整后可添加 `-o` 离线运行。
+验收使用 `clean` 清除旧测试字节码，确保结果来自当前源码。Surefire 在未发现任何测试时会使构建失败。
+
+2026-11-02 第四阶段验收：**201 次常规测试、33 次原生 MySQL 集成测试全部成功**，失败、错误、跳过均为 0，Checkstyle 与 SpotBugs 均为 0 项。常规测试的全项目行覆盖率 **96.30%（729/757）**，分支覆盖率 **85.64%（167/195）**。
+
+常规测试保留前三阶段的 182 次执行，新增并发库存、取消回补、幂等重试、失败回滚和旧订单迁移测试。MySQL 集成测试通过 `-Pmysql-it` 显式启用，需要专用测试库，配置见[数据库运行文档](docs/database.md)。验收结果见[第四阶段验收报告](docs/stage-4-verification.md)；[第三阶段](docs/stage-3-verification.md)和[第二阶段](docs/stage-2-verification.md)报告保留历史快照。
+
+- [HTML 覆盖率报告](target/site/jacoco/index.html)、[XML 覆盖率数据](target/site/jacoco/jacoco.xml)。
+- [Surefire 执行报告](target/surefire-reports/)、[第一阶段业务测试报告](软件测试报告.md)。
+
+以上生成报告位于 `target/`，每次构建会更新，执行验收命令后可查看。静态检查针对主代码，使用仓库现有规则及 SpotBugs 排除配置；未设置覆盖率门槛。
+
+测试源码中，购物车测试位于 `cart/service/`，订单测试位于 `order/service/`，路径与包名一致。
+`OrderCheckoutTest` 使用真实服务串联购物车、三类优惠券、运费和订单状态流转，仅将订单号替换为固定值。
 
 ## 项目架构简要说明
 
@@ -38,6 +80,12 @@ com.houkiang.ordersettlement
 
 ```text
 src/main/java/com/houkiang/ordersettlement
+├─ OrderSettlementApplication.java  Spring Boot 启动入口
+├─ config      Spring 服务装配
+├─ web         HTTP Controller、请求/响应 DTO、统一异常处理
+├─ catalog     商品与优惠券查询接口
+├─ application 订单事务、库存扣减与幂等编排
+├─ persistence MyBatis 仓储实现、Mapper 与数据库记录
 ├─ cart        商品与购物车模块
 ├─ promotion   优惠规则模块
 ├─ shipping    物流配送模块
@@ -55,8 +103,12 @@ exception   模块专用异常
 
 设计原则：
 
-- 使用普通 Java 类实现业务逻辑，方便直接编写 JUnit 5 单元测试。
-- 不依赖数据库、Spring、网络接口或真实支付系统。
+- 核心业务使用普通 Java 类实现，由配置类装配为 Spring Bean，保留直接进行单元测试的能力。
+- Controller 负责 HTTP 边界，预览服务负责查询目录和编排业务，金额计算复用原有服务。
+- 请求 DTO 使用 Jakarta Validation 校验，业务异常和请求错误映射为统一 JSON 与对应 HTTP 状态码。
+- 通过 `ProductCatalog`、`CouponCatalog`、`OrderRepository` 隔离数据库实现。
+- 保存订单历史快照，原子写入主表与明细；条件扣减防止超卖，取消时回补库存。
+- 通过持久化幂等键防止请求重试重复下单，状态条件更新防止并发覆盖。
 - 金额使用 `BigDecimal` 计算。
 - 订单号通过 `OrderIdGenerator` 接口抽象，测试时可以替换为固定订单号。
 - 业务异常按模块拆分，便于测试时精确断言异常类型。
